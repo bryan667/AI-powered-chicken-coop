@@ -39,8 +39,15 @@ Optional:
 
 - `EGG_MODEL_PATH` (default: `/models/egg_detector.pt`)
 - `PREDATOR_MODEL_PATH` (default: `/models/predator_detector.pt`)
+- `SENSOR_API_BASE_URL` (default: `http://127.0.0.1:8080`)
 
 `.env` is git-ignored, so it should not be committed.
+
+Sensor endpoints used by the app:
+- `GET /sensors/temperature`
+- `GET /sensors/humidity`
+- `GET /sensors/motion`
+- `GET /sensors/eggs`
 
 ## Usage
 
