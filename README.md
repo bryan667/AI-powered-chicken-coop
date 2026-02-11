@@ -41,7 +41,12 @@ Optional:
 - `EGG_MODEL_PATH` (default: `/models/egg_detector.pt`)
 - `PREDATOR_MODEL_PATH` (default: `/models/predator_detector.pt`)
 - `SENSOR_API_BASE_URL` (default: `http://127.0.0.1:8080`)
-- `ACTUATOR_API_BASE_URL` (default: `http://127.0.0.1:8080`)
+- `ACTUATOR_API_BASE_URL` (default: `http://127.0.0.1:8081`)
+- `ACTUATOR_BIND_ADDR` (default: `0.0.0.0:8081`)
+- `ACTUATOR_ALLOWED_ORIGIN` (default: `*`)
+- `FEEDER_ACTIVATE_CMD` (shell command executed on feeder activation)
+- `DOOR_OPEN_CMD` (shell command executed on door open)
+- `DOOR_CLOSE_CMD` (shell command executed on door close)
 
 `.env` is git-ignored, so it should not be committed.
 
@@ -56,10 +61,16 @@ Actuator endpoints used by the app:
 - `POST /actuators/door/open`
 - `POST /actuators/door/close`
 
+Actuator endpoints expect:
+- Header: `x-api-key: <ACTUATOR_API_KEY>`
+- JSON body for feeder: `{"device_key":"<FEEDER_KEY>","duration_ms":2500}`
+- JSON body for door: `{"device_key":"<DOOR_KEY>"}`
+
 ## Usage
 
 ```bash
 cargo run -- status
 cargo run -- feed now
 cargo run -- run ai-vision
+cargo run -- serve actuators
 ```

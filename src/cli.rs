@@ -18,6 +18,10 @@ pub enum Commands {
         #[command(subcommand)]
         action: RunCommands,
     },
+    Serve {
+        #[command(subcommand)]
+        action: ServeCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -28,4 +32,9 @@ pub enum FeedCommands {
 #[derive(Subcommand)]
 pub enum RunCommands {
     AiVision,
+}
+
+#[derive(Subcommand)]
+pub enum ServeCommands {
+    Actuators,
 }

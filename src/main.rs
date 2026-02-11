@@ -1,3 +1,4 @@
+mod actuator_server;
 mod actuators;
 mod ai;
 mod alerts;
@@ -7,7 +8,7 @@ mod scheduler;
 mod sensors;
 
 use clap::Parser;
-use cli::{Cli, Commands, FeedCommands, RunCommands};
+use cli::{Cli, Commands, FeedCommands, RunCommands, ServeCommands};
 use dotenvy::dotenv;
 use sensors::{
     EggPresenceSensor, HumiditySensor, MotionSensor, Sensor, SensorValue, TemperatureSensor,
@@ -39,20 +40,14 @@ async fn main() {
 
     let args = Cli::parse();
 
-    let temp_sensor_key = required_env("TEMP_SENSOR_KEY");
-    let humidity_sensor_key = required_env("HUMIDITY_SENSOR_KEY");
-    let motion_sensor_key = required_env("MOTION_SENSOR_KEY");
-    let egg_sensor_key = required_env("EGG_SENSOR_KEY");
-    let cache_key = required_env("CACHE_KEY");
-    let actuator_api_key = required_env("ACTUATOR_API_KEY");
-    let feeder_key = required_env("FEEDER_KEY");
-    let door_key = required_env("DOOR_KEY");
-    let ai_key = required_env("AI_KEY");
-    let egg_model_path = env_or_default("EGG_MODEL_PATH", "/models/egg_detector.pt");
-    let predator_model_path = env_or_default("PREDATOR_MODEL_PATH", "/models/predator_detector.pt");
-
     match args.command {
         Some(Commands::Status) => {
+            let temp_sensor_key = required_env("TEMP_SENSOR_KEY");
+            let humidity_sensor_key = required_env("HUMIDITY_SENSOR_KEY");
+            let motion_sensor_key = required_env("MOTION_SENSOR_KEY");
+            let egg_sensor_key = required_env("EGG_SENSOR_KEY");
+            let cache_key = required_env("CACHE_KEY");
+
             let temp_sensor = TemperatureSensor::new(&temp_sensor_key);
             let humidity_sensor = HumiditySensor::new(&humidity_sensor_key);
             let motion_sensor = MotionSensor::new(&motion_sensor_key);
@@ -81,6 +76,9 @@ async fn main() {
         Some(Commands::Feed {
             action: FeedCommands::Now,
         }) => {
+            let actuator_api_key = required_env("ACTUATOR_API_KEY");
+            let feeder_key = required_env("FEEDER_KEY");
+            let door_key = required_env("DOOR_KEY");
             let feeder = actuators::FeederMotor::new(&feeder_key, &actuator_api_key);
             let door = actuators::CoopDoor::new(&door_key, &actuator_api_key);
             println!("Activating feeder now...");
@@ -91,6 +89,10 @@ async fn main() {
         Some(Commands::Run {
             action: RunCommands::AiVision,
         }) => {
+            let ai_key = required_env("AI_KEY");
+            let egg_model_path = env_or_default("EGG_MODEL_PATH", "/models/egg_detector.pt");
+            let predator_model_path =
+                env_or_default("PREDATOR_MODEL_PATH", "/models/predator_detector.pt");
             println!("Running AI vision modules...");
             let egg_detector = ai::AiVision::load_model(&egg_model_path, &ai_key);
             let predator_detector = ai::AiVision::load_model(&predator_model_path, &ai_key);
@@ -104,9 +106,24 @@ async fn main() {
                 println!("No predators detected.");
             }
         }
+        Some(Commands::Serve {
+            action: ServeCommands::Actuators,
+        }) => {
+            let actuator_api_key = required_env("ACTUATOR_API_KEY");
+            let bind_addr = env_or_default("ACTUATOR_BIND_ADDR", "0.0.0.0:8081");
+            println!("Starting actuator receiver on {bind_addr}");
+            if let Err(err) =
+                actuator_server::run_actuator_server(&bind_addr, actuator_api_key).await
+            {
+                eprintln!("Actuator receiver exited with error: {err}");
+                std::process::exit(1);
+            }
+        }
         None => {
             println!("Welcome to AI Chicken Coop! Use --help for commands.");
-            println!("Try: `coop status`, `coop feed now`, `coop run ai-vision`");
+            println!(
+                "Try: `coop status`, `coop feed now`, `coop run ai-vision`, `coop serve actuators`"
+            );
         }
     }
 }

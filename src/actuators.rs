@@ -1,9 +1,10 @@
 use reqwest::blocking::Client;
 use serde::Serialize;
 use std::env;
+use std::process::Command;
 use std::time::Duration;
 
-const ACTUATOR_API_BASE_URL_DEFAULT: &str = "http://127.0.0.1:8080";
+const ACTUATOR_API_BASE_URL_DEFAULT: &str = "http://127.0.0.1:8081";
 
 fn redact_key(key: &str) -> String {
     let shown: String = key.chars().take(4).collect();
@@ -35,6 +36,92 @@ fn send_command(path: &str, device_key: &str, api_key: &str) -> bool {
         .send()
         .and_then(|resp| resp.error_for_status())
         .is_ok()
+}
+
+pub trait ActuatorDriver: Send {
+    fn feeder_activate(&mut self, device_key: &str, duration_ms: u64) -> Result<(), String>;
+    fn door_open(&mut self, device_key: &str) -> Result<(), String>;
+    fn door_close(&mut self, device_key: &str) -> Result<(), String>;
+}
+
+pub struct LocalActuatorDriver {
+    pub door_is_open: bool,
+    feeder_activate_cmd: Option<String>,
+    door_open_cmd: Option<String>,
+    door_close_cmd: Option<String>,
+}
+
+impl Default for LocalActuatorDriver {
+    fn default() -> Self {
+        LocalActuatorDriver {
+            door_is_open: false,
+            feeder_activate_cmd: env::var("FEEDER_ACTIVATE_CMD").ok(),
+            door_open_cmd: env::var("DOOR_OPEN_CMD").ok(),
+            door_close_cmd: env::var("DOOR_CLOSE_CMD").ok(),
+        }
+    }
+}
+
+fn run_hardware_command(
+    command_template: &str,
+    device_key: &str,
+    duration_ms: Option<u64>,
+) -> Result<(), String> {
+    let rendered = command_template
+        .replace("{device_key}", device_key)
+        .replace("{duration_ms}", &duration_ms.unwrap_or(0).to_string());
+
+    #[cfg(target_os = "windows")]
+    let status = Command::new("powershell")
+        .args(["-NoProfile", "-Command", &rendered])
+        .status();
+
+    #[cfg(not(target_os = "windows"))]
+    let status = Command::new("sh").args(["-c", &rendered]).status();
+
+    match status {
+        Ok(exit) if exit.success() => Ok(()),
+        Ok(exit) => Err(format!("command failed with status: {exit}")),
+        Err(err) => Err(format!("failed to execute command: {err}")),
+    }
+}
+
+impl ActuatorDriver for LocalActuatorDriver {
+    fn feeder_activate(&mut self, device_key: &str, duration_ms: u64) -> Result<(), String> {
+        println!(
+            "Feeder relay activated for {}ms using device {}",
+            duration_ms,
+            redact_key(device_key)
+        );
+        if let Some(cmd) = &self.feeder_activate_cmd {
+            run_hardware_command(cmd, device_key, Some(duration_ms))?;
+        }
+        Ok(())
+    }
+
+    fn door_open(&mut self, device_key: &str) -> Result<(), String> {
+        self.door_is_open = true;
+        println!(
+            "Door motor set to OPEN using device {}",
+            redact_key(device_key)
+        );
+        if let Some(cmd) = &self.door_open_cmd {
+            run_hardware_command(cmd, device_key, None)?;
+        }
+        Ok(())
+    }
+
+    fn door_close(&mut self, device_key: &str) -> Result<(), String> {
+        self.door_is_open = false;
+        println!(
+            "Door motor set to CLOSE using device {}",
+            redact_key(device_key)
+        );
+        if let Some(cmd) = &self.door_close_cmd {
+            run_hardware_command(cmd, device_key, None)?;
+        }
+        Ok(())
+    }
 }
 
 pub struct FeederMotor {
