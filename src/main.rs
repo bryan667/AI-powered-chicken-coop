@@ -44,6 +44,7 @@ async fn main() {
     let motion_sensor_key = required_env("MOTION_SENSOR_KEY");
     let egg_sensor_key = required_env("EGG_SENSOR_KEY");
     let cache_key = required_env("CACHE_KEY");
+    let actuator_api_key = required_env("ACTUATOR_API_KEY");
     let feeder_key = required_env("FEEDER_KEY");
     let door_key = required_env("DOOR_KEY");
     let ai_key = required_env("AI_KEY");
@@ -80,8 +81,8 @@ async fn main() {
         Some(Commands::Feed {
             action: FeedCommands::Now,
         }) => {
-            let feeder = actuators::FeederMotor::new(&feeder_key);
-            let door = actuators::CoopDoor::new(&door_key);
+            let feeder = actuators::FeederMotor::new(&feeder_key, &actuator_api_key);
+            let door = actuators::CoopDoor::new(&door_key, &actuator_api_key);
             println!("Activating feeder now...");
             feeder.activate();
             door.open();

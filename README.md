@@ -32,6 +32,7 @@ Then edit `.env` and set real values for:
 - `EGG_SENSOR_KEY`
 - `FEEDER_KEY`
 - `DOOR_KEY`
+- `ACTUATOR_API_KEY`
 - `AI_KEY`
 - `CACHE_KEY`
 
@@ -40,6 +41,7 @@ Optional:
 - `EGG_MODEL_PATH` (default: `/models/egg_detector.pt`)
 - `PREDATOR_MODEL_PATH` (default: `/models/predator_detector.pt`)
 - `SENSOR_API_BASE_URL` (default: `http://127.0.0.1:8080`)
+- `ACTUATOR_API_BASE_URL` (default: `http://127.0.0.1:8080`)
 
 `.env` is git-ignored, so it should not be committed.
 
@@ -48,6 +50,11 @@ Sensor endpoints used by the app:
 - `GET /sensors/humidity`
 - `GET /sensors/motion`
 - `GET /sensors/eggs`
+
+Actuator endpoints used by the app:
+- `POST /actuators/feeder/activate`
+- `POST /actuators/door/open`
+- `POST /actuators/door/close`
 
 ## Usage
 
