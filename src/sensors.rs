@@ -2,6 +2,11 @@ pub trait Sensor {
     fn read(&self) -> SensorValue;
 }
 
+fn redact_key(key: &str) -> String {
+    let shown: String = key.chars().take(4).collect();
+    format!("{shown}***")
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SensorValue {
     Numeric(f32),
@@ -22,7 +27,7 @@ impl TemperatureSensor {
 
 impl Sensor for TemperatureSensor {
     fn read(&self) -> SensorValue {
-        println!("Reading temperature using key {}", self.key);
+        println!("Reading temperature using key {}", redact_key(&self.key));
         SensorValue::Numeric(32.0)
     }
 }
@@ -41,7 +46,7 @@ impl HumiditySensor {
 
 impl Sensor for HumiditySensor {
     fn read(&self) -> SensorValue {
-        println!("Reading humidity using key {}", self.key);
+        println!("Reading humidity using key {}", redact_key(&self.key));
         SensorValue::Numeric(75.0)
     }
 }
@@ -60,7 +65,7 @@ impl MotionSensor {
 
 impl Sensor for MotionSensor {
     fn read(&self) -> SensorValue {
-        println!("Reading motion using key {}", self.key);
+        println!("Reading motion using key {}", redact_key(&self.key));
         SensorValue::Binary(false)
     }
 }
@@ -79,7 +84,7 @@ impl EggPresenceSensor {
 
 impl Sensor for EggPresenceSensor {
     fn read(&self) -> SensorValue {
-        println!("Reading egg presence using key {}", self.key);
+        println!("Reading egg presence using key {}", redact_key(&self.key));
         SensorValue::Binary(true)
     }
 }

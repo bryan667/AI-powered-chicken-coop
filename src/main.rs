@@ -8,9 +8,11 @@ mod sensors;
 
 use clap::Parser;
 use cli::{Cli, Commands, FeedCommands, RunCommands};
+use dotenvy::dotenv;
 use sensors::{
     EggPresenceSensor, HumiditySensor, MotionSensor, Sensor, SensorValue, TemperatureSensor,
 };
+use std::env;
 use tokio::time::Duration;
 
 fn format_sensor_value(value: SensorValue) -> String {
@@ -20,17 +22,41 @@ fn format_sensor_value(value: SensorValue) -> String {
     }
 }
 
+fn required_env(name: &str) -> String {
+    env::var(name).unwrap_or_else(|_| {
+        eprintln!("Missing required environment variable: {name}");
+        std::process::exit(2);
+    })
+}
+
+fn env_or_default(name: &str, default: &str) -> String {
+    env::var(name).unwrap_or_else(|_| default.to_string())
+}
+
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
+
     let args = Cli::parse();
+
+    let temp_sensor_key = required_env("TEMP_SENSOR_KEY");
+    let humidity_sensor_key = required_env("HUMIDITY_SENSOR_KEY");
+    let motion_sensor_key = required_env("MOTION_SENSOR_KEY");
+    let egg_sensor_key = required_env("EGG_SENSOR_KEY");
+    let cache_key = required_env("CACHE_KEY");
+    let feeder_key = required_env("FEEDER_KEY");
+    let door_key = required_env("DOOR_KEY");
+    let ai_key = required_env("AI_KEY");
+    let egg_model_path = env_or_default("EGG_MODEL_PATH", "/models/egg_detector.pt");
+    let predator_model_path = env_or_default("PREDATOR_MODEL_PATH", "/models/predator_detector.pt");
 
     match args.command {
         Some(Commands::Status) => {
-            let temp_sensor = TemperatureSensor::new("TEMP_KEY");
-            let humidity_sensor = HumiditySensor::new("HUMIDITY_KEY");
-            let motion_sensor = MotionSensor::new("MOTION_KEY");
-            let egg_sensor = EggPresenceSensor::new("EGG_KEY");
-            let mut data_cache = cache::DataCache::new("CACHE_KEY");
+            let temp_sensor = TemperatureSensor::new(&temp_sensor_key);
+            let humidity_sensor = HumiditySensor::new(&humidity_sensor_key);
+            let motion_sensor = MotionSensor::new(&motion_sensor_key);
+            let egg_sensor = EggPresenceSensor::new(&egg_sensor_key);
+            let mut data_cache = cache::DataCache::new(&cache_key);
 
             let temp = format_sensor_value(temp_sensor.read());
             let humidity = format_sensor_value(humidity_sensor.read());
@@ -54,8 +80,8 @@ async fn main() {
         Some(Commands::Feed {
             action: FeedCommands::Now,
         }) => {
-            let feeder = actuators::FeederMotor::new("FEEDER_KEY");
-            let door = actuators::CoopDoor::new("DOOR_KEY");
+            let feeder = actuators::FeederMotor::new(&feeder_key);
+            let door = actuators::CoopDoor::new(&door_key);
             println!("Activating feeder now...");
             feeder.activate();
             door.open();
@@ -65,10 +91,8 @@ async fn main() {
             action: RunCommands::AiVision,
         }) => {
             println!("Running AI vision modules...");
-            let egg_detector =
-                ai::AiVision::load_model("/models/egg_detector.pt", "AI_KEY");
-            let predator_detector =
-                ai::AiVision::load_model("/models/predator_detector.pt", "AI_KEY");
+            let egg_detector = ai::AiVision::load_model(&egg_model_path, &ai_key);
+            let predator_detector = ai::AiVision::load_model(&predator_model_path, &ai_key);
             if egg_detector.detect() {
                 println!("Egg detected!");
             }

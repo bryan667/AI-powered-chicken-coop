@@ -2,6 +2,11 @@ pub struct FeederMotor {
     pub key: String,
 }
 
+fn redact_key(key: &str) -> String {
+    let shown: String = key.chars().take(4).collect();
+    format!("{shown}***")
+}
+
 impl FeederMotor {
     pub fn new(key: &str) -> Self {
         FeederMotor {
@@ -10,7 +15,7 @@ impl FeederMotor {
     }
 
     pub fn activate(&self) {
-        println!("Feeder activated using key {}", self.key);
+        println!("Feeder activated using key {}", redact_key(&self.key));
     }
 }
 
@@ -26,11 +31,11 @@ impl CoopDoor {
     }
 
     pub fn open(&self) {
-        println!("Coop door opened using key {}", self.key);
+        println!("Coop door opened using key {}", redact_key(&self.key));
     }
 
     pub fn close(&self) {
-        println!("Coop door closed using key {}", self.key);
+        println!("Coop door closed using key {}", redact_key(&self.key));
     }
 }
 

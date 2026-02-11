@@ -5,9 +5,14 @@ pub struct DataCache {
     pub store: HashMap<String, String>,
 }
 
+fn redact_key(key: &str) -> String {
+    let shown: String = key.chars().take(4).collect();
+    format!("{shown}***")
+}
+
 impl DataCache {
     pub fn new(key: &str) -> Self {
-        println!("Initializing cache with key {}", key);
+        println!("Initializing cache with key {}", redact_key(key));
         DataCache {
             key: key.to_string(),
             store: HashMap::new(),
@@ -15,7 +20,7 @@ impl DataCache {
     }
 
     pub fn store(&mut self, k: &str, v: &str) {
-        println!("Storing {} => {} in cache {}", k, v, self.key);
+        println!("Storing {} => {} in cache {}", k, v, redact_key(&self.key));
         self.store.insert(k.to_string(), v.to_string());
     }
 
