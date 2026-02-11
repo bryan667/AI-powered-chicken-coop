@@ -8,7 +8,10 @@ pub struct DataCache {
 impl DataCache {
     pub fn new(key: &str) -> Self {
         println!("Initializing cache with key {}", key);
-        DataCache { key: key.to_string(), store: HashMap::new() }
+        DataCache {
+            key: key.to_string(),
+            store: HashMap::new(),
+        }
     }
 
     pub fn store(&mut self, k: &str, v: &str) {
@@ -18,5 +21,19 @@ impl DataCache {
 
     pub fn retrieve(&self, k: &str) -> Option<&String> {
         self.store.get(k)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::DataCache;
+
+    #[test]
+    fn cache_store_and_retrieve_round_trip() {
+        let mut cache = DataCache::new("CACHE_KEY");
+        cache.store("last_temp", "32.0C");
+
+        assert_eq!(cache.retrieve("last_temp"), Some(&"32.0C".to_string()));
+        assert_eq!(cache.retrieve("missing"), None);
     }
 }

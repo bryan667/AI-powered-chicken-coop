@@ -14,5 +14,6 @@ Rust project for controlling an AI-powered chicken coop.
 
 ```bash
 cargo run -- status
-cargo run -- feed
-cargo run -- run-ai
+cargo run -- feed now
+cargo run -- run ai-vision
+```

@@ -4,7 +4,9 @@ pub struct FeederMotor {
 
 impl FeederMotor {
     pub fn new(key: &str) -> Self {
-        FeederMotor { key: key.to_string() }
+        FeederMotor {
+            key: key.to_string(),
+        }
     }
 
     pub fn activate(&self) {
@@ -18,7 +20,9 @@ pub struct CoopDoor {
 
 impl CoopDoor {
     pub fn new(key: &str) -> Self {
-        CoopDoor { key: key.to_string() }
+        CoopDoor {
+            key: key.to_string(),
+        }
     }
 
     pub fn open(&self) {
@@ -27,5 +31,20 @@ impl CoopDoor {
 
     pub fn close(&self) {
         println!("Coop door closed using key {}", self.key);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CoopDoor, FeederMotor};
+
+    #[test]
+    fn actuators_can_be_constructed() {
+        let feeder = FeederMotor::new("FEEDER");
+        let door = CoopDoor::new("DOOR");
+
+        feeder.activate();
+        door.open();
+        door.close();
     }
 }

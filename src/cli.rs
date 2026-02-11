@@ -10,6 +10,22 @@ pub struct Cli {
 #[derive(Subcommand)]
 pub enum Commands {
     Status,
-    Feed,
-    RunAi,
+    Feed {
+        #[command(subcommand)]
+        action: FeedCommands,
+    },
+    Run {
+        #[command(subcommand)]
+        action: RunCommands,
+    },
+}
+
+#[derive(Subcommand)]
+pub enum FeedCommands {
+    Now,
+}
+
+#[derive(Subcommand)]
+pub enum RunCommands {
+    AiVision,
 }
