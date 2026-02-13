@@ -125,42 +125,59 @@ async fn main() {
                 }
             } else {
                 #[cfg(feature = "camera")]
-                for _ in 0..frames {
-                    match camera::capture_frame(camera_index) {
-                        Ok(frame) => match vision.classify_dynamic_image(frame.clone()) {
-                            Ok(result) => {
-                                println!(
-                                    "Webcam label: {} (confidence {:.3})",
-                                    result.label, result.confidence
-                                );
-                                println!("Chicken detected: {}", result.chicken_detected);
-                                println!("Predator detected: {}", result.predator_detected);
-                                if result.chicken_detected || result.predator_detected {
-                                    match camera::save_detection_frame(
-                                        &frame,
-                                        &result.label,
-                                        result.confidence,
-                                    ) {
-                                        Ok(path) => println!("Saved detection frame: {path}"),
-                                        Err(err) => eprintln!("{err}"),
+                {
+                    let warmup_frames = env_or_default("VISION_WARMUP_FRAMES", "8")
+                        .parse::<u32>()
+                        .unwrap_or(8);
+                    let mut session = match camera::CameraSession::open(camera_index) {
+                        Ok(session) => session,
+                        Err(err) => {
+                            eprintln!("{err}");
+                            std::process::exit(1);
+                        }
+                    };
+                    if let Err(err) = session.warm_up(warmup_frames) {
+                        eprintln!("{err}");
+                        std::process::exit(1);
+                    }
+
+                    for _ in 0..frames {
+                        match session.capture_frame() {
+                            Ok(frame) => match vision.classify_dynamic_image(frame.clone()) {
+                                Ok(result) => {
+                                    println!(
+                                        "Webcam label: {} (confidence {:.3})",
+                                        result.label, result.confidence
+                                    );
+                                    println!("Chicken detected: {}", result.chicken_detected);
+                                    println!("Predator detected: {}", result.predator_detected);
+                                    if result.chicken_detected || result.predator_detected {
+                                        match camera::save_detection_frame(
+                                            &frame,
+                                            &result.label,
+                                            result.confidence,
+                                        ) {
+                                            Ok(path) => println!("Saved detection frame: {path}"),
+                                            Err(err) => eprintln!("{err}"),
+                                        }
+                                    }
+                                    if result.predator_detected
+                                        && result.confidence >= predator_threshold
+                                    {
+                                        let alert =
+                                            alerts::Alert::new("Predator detected in webcam frame");
+                                        alert.send();
                                     }
                                 }
-                                if result.predator_detected
-                                    && result.confidence >= predator_threshold
-                                {
-                                    let alert =
-                                        alerts::Alert::new("Predator detected in webcam frame");
-                                    alert.send();
+                                Err(err) => {
+                                    eprintln!("{err}");
+                                    std::process::exit(1);
                                 }
-                            }
+                            },
                             Err(err) => {
                                 eprintln!("{err}");
                                 std::process::exit(1);
                             }
-                        },
-                        Err(err) => {
-                            eprintln!("{err}");
-                            std::process::exit(1);
                         }
                     }
                 }

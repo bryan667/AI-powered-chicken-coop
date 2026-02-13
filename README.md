@@ -56,6 +56,7 @@ Optional:
 - `VISION_MODEL_PATH` (default: `models/mobilenetv2-7.onnx`)
 - `VISION_LABELS_PATH` (default: `models/synset.txt`)
 - `PREDATOR_THRESHOLD` (default: `0.30`)
+- `VISION_WARMUP_FRAMES` (default: `8`, webcam autofocus settle frames)
 
 `.env` is git-ignored, so it should not be committed.
 
