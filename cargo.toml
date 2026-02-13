@@ -3,6 +3,10 @@ name = "chicken-coop-rs"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+default = []
+pi-hw = ["dep:rppal"]
+
 [dependencies]
 tokio = { version = "1.38", features = ["full"] }
 clap = { version = "4.2", features = ["derive"] }
@@ -12,3 +16,4 @@ dotenvy = "0.15"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 axum = "0.7"
 tower-http = { version = "0.6", features = ["cors"] }
+rppal = { version = "0.18", optional = true }

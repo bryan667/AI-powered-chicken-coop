@@ -44,9 +44,15 @@ Optional:
 - `ACTUATOR_API_BASE_URL` (default: `http://127.0.0.1:8081`)
 - `ACTUATOR_BIND_ADDR` (default: `0.0.0.0:8081`)
 - `ACTUATOR_ALLOWED_ORIGIN` (default: `*`)
+- `ACTUATOR_BACKEND` (`command` or `rpi-gpio`, default: `command`)
 - `FEEDER_ACTIVATE_CMD` (shell command executed on feeder activation)
 - `DOOR_OPEN_CMD` (shell command executed on door open)
 - `DOOR_CLOSE_CMD` (shell command executed on door close)
+- `FEEDER_GPIO_PIN` (default: `17`, for `rpi-gpio`)
+- `DOOR_OPEN_GPIO_PIN` (default: `27`, for `rpi-gpio`)
+- `DOOR_CLOSE_GPIO_PIN` (default: `22`, for `rpi-gpio`)
+- `ACTUATOR_ACTIVE_HIGH` (default: `true`, for `rpi-gpio`)
+- `DOOR_PULSE_MS` (default: `1200`, for `rpi-gpio`)
 
 `.env` is git-ignored, so it should not be committed.
 
@@ -73,4 +79,17 @@ cargo run -- status
 cargo run -- feed now
 cargo run -- run ai-vision
 cargo run -- serve actuators
+```
+
+Actuator backend modes:
+- `command`: executes `FEEDER_ACTIVATE_CMD`, `DOOR_OPEN_CMD`, `DOOR_CLOSE_CMD`
+- `rpi-gpio`: drives Raspberry Pi GPIO pins directly
+
+Raspberry Pi GPIO startup:
+1. Set `ACTUATOR_BACKEND=rpi-gpio` in `.env`.
+2. Set pin env vars (`FEEDER_GPIO_PIN`, `DOOR_OPEN_GPIO_PIN`, `DOOR_CLOSE_GPIO_PIN`).
+3. Start receiver:
+
+```bash
+cargo run --features pi-hw -- serve actuators
 ```

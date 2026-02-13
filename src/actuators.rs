@@ -44,6 +44,49 @@ pub trait ActuatorDriver: Send {
     fn door_close(&mut self, device_key: &str) -> Result<(), String>;
 }
 
+pub fn create_driver_from_env() -> Result<Box<dyn ActuatorDriver>, String> {
+    let backend = env::var("ACTUATOR_BACKEND").unwrap_or_else(|_| "command".to_string());
+    match backend.as_str() {
+        "command" => Ok(Box::new(LocalActuatorDriver::default())),
+        "rpi-gpio" => create_rpi_driver_from_env(),
+        _ => Err(format!(
+            "unsupported ACTUATOR_BACKEND `{backend}` (expected `command` or `rpi-gpio`)"
+        )),
+    }
+}
+
+#[cfg(all(feature = "pi-hw", target_os = "linux"))]
+fn parse_u8_env(name: &str, default: u8) -> Result<u8, String> {
+    match env::var(name) {
+        Ok(value) => value
+            .parse::<u8>()
+            .map_err(|_| format!("invalid value for {name}: {value}")),
+        Err(_) => Ok(default),
+    }
+}
+
+#[cfg(all(feature = "pi-hw", target_os = "linux"))]
+fn parse_u64_env(name: &str, default: u64) -> Result<u64, String> {
+    match env::var(name) {
+        Ok(value) => value
+            .parse::<u64>()
+            .map_err(|_| format!("invalid value for {name}: {value}")),
+        Err(_) => Ok(default),
+    }
+}
+
+#[cfg(all(feature = "pi-hw", target_os = "linux"))]
+fn parse_bool_env(name: &str, default: bool) -> Result<bool, String> {
+    match env::var(name) {
+        Ok(value) => match value.as_str() {
+            "1" | "true" | "TRUE" | "yes" | "on" => Ok(true),
+            "0" | "false" | "FALSE" | "no" | "off" => Ok(false),
+            _ => Err(format!("invalid value for {name}: {value}")),
+        },
+        Err(_) => Ok(default),
+    }
+}
+
 pub struct LocalActuatorDriver {
     pub door_is_open: bool,
     feeder_activate_cmd: Option<String>,
@@ -60,6 +103,28 @@ impl Default for LocalActuatorDriver {
             door_close_cmd: env::var("DOOR_CLOSE_CMD").ok(),
         }
     }
+}
+
+#[cfg(all(feature = "pi-hw", target_os = "linux"))]
+fn create_rpi_driver_from_env() -> Result<Box<dyn ActuatorDriver>, String> {
+    let feeder_pin = parse_u8_env("FEEDER_GPIO_PIN", 17)?;
+    let door_open_pin = parse_u8_env("DOOR_OPEN_GPIO_PIN", 27)?;
+    let door_close_pin = parse_u8_env("DOOR_CLOSE_GPIO_PIN", 22)?;
+    let active_high = parse_bool_env("ACTUATOR_ACTIVE_HIGH", true)?;
+    let door_pulse_ms = parse_u64_env("DOOR_PULSE_MS", 1200)?;
+    let driver = RpiGpioActuatorDriver::new(
+        feeder_pin,
+        door_open_pin,
+        door_close_pin,
+        active_high,
+        door_pulse_ms,
+    )?;
+    Ok(Box::new(driver))
+}
+
+#[cfg(not(all(feature = "pi-hw", target_os = "linux")))]
+fn create_rpi_driver_from_env() -> Result<Box<dyn ActuatorDriver>, String> {
+    Err("ACTUATOR_BACKEND=rpi-gpio requires Linux and cargo feature `pi-hw`".to_string())
 }
 
 fn run_hardware_command(
@@ -124,6 +189,107 @@ impl ActuatorDriver for LocalActuatorDriver {
     }
 }
 
+#[cfg(all(feature = "pi-hw", target_os = "linux"))]
+mod rpi_gpio {
+    use super::ActuatorDriver;
+    use rppal::gpio::{Gpio, Level, OutputPin};
+    use std::thread::sleep;
+    use std::time::Duration;
+
+    pub struct RpiGpioActuatorDriver {
+        feeder_pin: OutputPin,
+        door_open_pin: OutputPin,
+        door_close_pin: OutputPin,
+        active_level: Level,
+        inactive_level: Level,
+        door_pulse_ms: u64,
+    }
+
+    impl RpiGpioActuatorDriver {
+        pub fn new(
+            feeder_pin: u8,
+            door_open_pin: u8,
+            door_close_pin: u8,
+            active_high: bool,
+            door_pulse_ms: u64,
+        ) -> Result<Self, String> {
+            let gpio = Gpio::new().map_err(|e| format!("gpio init failed: {e}"))?;
+            let active_level = if active_high { Level::High } else { Level::Low };
+            let inactive_level = if active_high { Level::Low } else { Level::High };
+
+            let mut feeder = gpio
+                .get(feeder_pin)
+                .map_err(|e| format!("gpio pin {feeder_pin} unavailable: {e}"))?
+                .into_output();
+            feeder.write(inactive_level);
+
+            let mut door_open = gpio
+                .get(door_open_pin)
+                .map_err(|e| format!("gpio pin {door_open_pin} unavailable: {e}"))?
+                .into_output();
+            door_open.write(inactive_level);
+
+            let mut door_close = gpio
+                .get(door_close_pin)
+                .map_err(|e| format!("gpio pin {door_close_pin} unavailable: {e}"))?
+                .into_output();
+            door_close.write(inactive_level);
+
+            Ok(Self {
+                feeder_pin: feeder,
+                door_open_pin: door_open,
+                door_close_pin: door_close,
+                active_level,
+                inactive_level,
+                door_pulse_ms,
+            })
+        }
+
+        fn pulse(pin: &mut OutputPin, active: Level, inactive: Level, ms: u64) {
+            pin.write(active);
+            sleep(Duration::from_millis(ms));
+            pin.write(inactive);
+        }
+    }
+
+    impl ActuatorDriver for RpiGpioActuatorDriver {
+        fn feeder_activate(&mut self, _device_key: &str, duration_ms: u64) -> Result<(), String> {
+            Self::pulse(
+                &mut self.feeder_pin,
+                self.active_level,
+                self.inactive_level,
+                duration_ms,
+            );
+            Ok(())
+        }
+
+        fn door_open(&mut self, _device_key: &str) -> Result<(), String> {
+            self.door_close_pin.write(self.inactive_level);
+            Self::pulse(
+                &mut self.door_open_pin,
+                self.active_level,
+                self.inactive_level,
+                self.door_pulse_ms,
+            );
+            Ok(())
+        }
+
+        fn door_close(&mut self, _device_key: &str) -> Result<(), String> {
+            self.door_open_pin.write(self.inactive_level);
+            Self::pulse(
+                &mut self.door_close_pin,
+                self.active_level,
+                self.inactive_level,
+                self.door_pulse_ms,
+            );
+            Ok(())
+        }
+    }
+}
+
+#[cfg(all(feature = "pi-hw", target_os = "linux"))]
+use rpi_gpio::RpiGpioActuatorDriver;
+
 pub struct FeederMotor {
     pub key: String,
     pub api_key: String,
@@ -181,7 +347,7 @@ impl CoopDoor {
 
 #[cfg(test)]
 mod tests {
-    use super::{CoopDoor, FeederMotor};
+    use super::{create_driver_from_env, CoopDoor, FeederMotor};
     use std::io::{Read, Write};
     use std::net::TcpListener;
     use std::sync::{Arc, Mutex, OnceLock};
@@ -246,5 +412,12 @@ mod tests {
             .any(|line| line.starts_with("POST /actuators/door/close ")));
 
         std::env::remove_var("ACTUATOR_API_BASE_URL");
+    }
+
+    #[test]
+    fn command_backend_is_default() {
+        let _guard = env_lock().lock().expect("env lock");
+        std::env::remove_var("ACTUATOR_BACKEND");
+        assert!(create_driver_from_env().is_ok());
     }
 }

@@ -1,4 +1,4 @@
-use crate::actuators::{ActuatorDriver, LocalActuatorDriver};
+use crate::actuators::{create_driver_from_env, ActuatorDriver};
 use axum::extract::State;
 use axum::http::header::{HeaderName, CONTENT_TYPE};
 use axum::http::{HeaderMap, HeaderValue, Method, StatusCode};
@@ -46,9 +46,10 @@ pub async fn run_actuator_server(
     bind_addr: &str,
     api_key: String,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    let driver = create_driver_from_env().map_err(std::io::Error::other)?;
     let state = AppState {
         api_key,
-        driver: Arc::new(Mutex::new(Box::new(LocalActuatorDriver::default()))),
+        driver: Arc::new(Mutex::new(driver)),
     };
 
     let app = Router::new()

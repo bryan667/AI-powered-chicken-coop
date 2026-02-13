@@ -178,6 +178,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "reqwest",
+ "rppal",
  "serde",
  "serde_json",
  "tokio",
@@ -904,6 +905,15 @@ dependencies = [
  "libc",
  "untrusted",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "rppal"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ae44db779bd0898047804d22b662a9dc533b142c077b3f7e36003f658835c5b9"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
