@@ -93,3 +93,25 @@ Raspberry Pi GPIO startup:
 ```bash
 cargo run --features pi-hw -- serve actuators
 ```
+
+# 🐔 Vision Model Suggestions for Pi 5
+Use: Object detection / classification (Runs locally on the Pi)
+
+## TensorFlow Lite Models
+- **MobileNet SSD v2 / v3**  
+  Small, fast, designed for edge devices. Can detect general objects or be retrained for chicken/predator classes.
+
+- **EfficientDet-Lite**  
+  Better accuracy than MobileNet. Slightly slower, still runs on Pi 5. Good for distinguishing multiple animal types.
+
+- **SqueezeNet**  
+  Lightweight CNN, smaller model size, low latency. Can be retrained for specific object detection tasks.
+
+## YOLO Variants
+- **YOLOv5n / YOLOv8n / YOLOv11n / YOLO26n**  
+  Extremely lightweight, fast inference. Can retrain for chickens, cats, rats, predators. Output: bounding boxes + class labels, easy to feed into Rust logic.
+
+> 💡 Tips for running locally:
+> - Use low resolution input (e.g., 320×320) to speed up inference.  
+> - Batch size = 1, process frames every 1–2 seconds for real-time detection.  
+> - Optional: use Coral USB Accelerator for higher FPS if needed.
