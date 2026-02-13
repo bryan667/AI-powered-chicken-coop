@@ -3,6 +3,7 @@ mod actuators;
 mod ai;
 mod alerts;
 mod cache;
+mod camera;
 mod cli;
 mod scheduler;
 mod sensors;
@@ -87,23 +88,90 @@ async fn main() {
             door.close();
         }
         Some(Commands::Run {
-            action: RunCommands::AiVision,
+            action:
+                RunCommands::AiVision {
+                    image,
+                    camera_index,
+                    frames,
+                },
         }) => {
             let ai_key = required_env("AI_KEY");
-            let egg_model_path = env_or_default("EGG_MODEL_PATH", "/models/egg_detector.pt");
-            let predator_model_path =
-                env_or_default("PREDATOR_MODEL_PATH", "/models/predator_detector.pt");
+            let vision_model_path =
+                env_or_default("VISION_MODEL_PATH", "models/mobilenetv2-7.onnx");
+            let predator_threshold = env_or_default("PREDATOR_THRESHOLD", "0.30")
+                .parse::<f32>()
+                .unwrap_or(0.30);
             println!("Running AI vision modules...");
-            let egg_detector = ai::AiVision::load_model(&egg_model_path, &ai_key);
-            let predator_detector = ai::AiVision::load_model(&predator_model_path, &ai_key);
-            if egg_detector.detect() {
-                println!("Egg detected!");
-            }
-            if predator_detector.detect() {
-                let alert = alerts::Alert::new("Predator detected");
-                alert.send();
+            let vision = ai::AiVision::load_model(&vision_model_path, &ai_key);
+
+            if let Some(image_path) = image {
+                match vision.classify_image(&image_path) {
+                    Ok(result) => {
+                        println!(
+                            "Label: {} (confidence {:.3})",
+                            result.label, result.confidence
+                        );
+                        println!("Chicken detected: {}", result.chicken_detected);
+                        println!("Predator detected: {}", result.predator_detected);
+                        if result.predator_detected && result.confidence >= predator_threshold {
+                            let alert = alerts::Alert::new("Predator detected in image");
+                            alert.send();
+                        }
+                    }
+                    Err(err) => {
+                        eprintln!("{err}");
+                        std::process::exit(1);
+                    }
+                }
             } else {
-                println!("No predators detected.");
+                #[cfg(feature = "camera")]
+                for _ in 0..frames {
+                    match camera::capture_frame(camera_index) {
+                        Ok(frame) => match vision.classify_dynamic_image(frame.clone()) {
+                            Ok(result) => {
+                                println!(
+                                    "Webcam label: {} (confidence {:.3})",
+                                    result.label, result.confidence
+                                );
+                                println!("Chicken detected: {}", result.chicken_detected);
+                                println!("Predator detected: {}", result.predator_detected);
+                                if result.chicken_detected || result.predator_detected {
+                                    match camera::save_detection_frame(
+                                        &frame,
+                                        &result.label,
+                                        result.confidence,
+                                    ) {
+                                        Ok(path) => println!("Saved detection frame: {path}"),
+                                        Err(err) => eprintln!("{err}"),
+                                    }
+                                }
+                                if result.predator_detected
+                                    && result.confidence >= predator_threshold
+                                {
+                                    let alert =
+                                        alerts::Alert::new("Predator detected in webcam frame");
+                                    alert.send();
+                                }
+                            }
+                            Err(err) => {
+                                eprintln!("{err}");
+                                std::process::exit(1);
+                            }
+                        },
+                        Err(err) => {
+                            eprintln!("{err}");
+                            std::process::exit(1);
+                        }
+                    }
+                }
+                #[cfg(not(feature = "camera"))]
+                {
+                    let _ = frames;
+                    let _ = camera_index;
+                    eprintln!("Webcam mode requires cargo feature `camera`.");
+                    eprintln!("Use --image <path> or run with --features camera.");
+                    std::process::exit(1);
+                }
             }
         }
         Some(Commands::Serve {

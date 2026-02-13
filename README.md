@@ -53,6 +53,9 @@ Optional:
 - `DOOR_CLOSE_GPIO_PIN` (default: `22`, for `rpi-gpio`)
 - `ACTUATOR_ACTIVE_HIGH` (default: `true`, for `rpi-gpio`)
 - `DOOR_PULSE_MS` (default: `1200`, for `rpi-gpio`)
+- `VISION_MODEL_PATH` (default: `models/mobilenetv2-7.onnx`)
+- `VISION_LABELS_PATH` (default: `models/synset.txt`)
+- `PREDATOR_THRESHOLD` (default: `0.30`)
 
 `.env` is git-ignored, so it should not be committed.
 
@@ -80,6 +83,25 @@ cargo run -- feed now
 cargo run -- run ai-vision
 cargo run -- serve actuators
 ```
+
+Local vision test (desktop webcam or image):
+1. Download model assets:
+   - Windows PowerShell: `./scripts/download_vision_assets.ps1`
+   - Linux/macOS: `bash ./scripts/download_vision_assets.sh`
+2. Run image classification:
+
+```bash
+cargo run --features vision-local -- run ai-vision --image ./sample.jpg
+```
+
+3. Run webcam classification:
+
+```bash
+cargo run --features camera -- run ai-vision --camera-index 0 --frames 10
+```
+
+For Pi 5 later, use the same vision feature path on Linux and tune frame count/interval.
+When webcam mode detects `chicken` or `predator`, it saves a frame in `captures/`.
 
 Actuator backend modes:
 - `command`: executes `FEEDER_ACTIVATE_CMD`, `DOOR_OPEN_CMD`, `DOOR_CLOSE_CMD`

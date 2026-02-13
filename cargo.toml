@@ -6,6 +6,8 @@ edition = "2021"
 [features]
 default = []
 pi-hw = ["dep:rppal"]
+vision-local = ["dep:image", "dep:tract-onnx", "dep:ndarray"]
+camera = ["vision-local", "dep:nokhwa"]
 
 [dependencies]
 tokio = { version = "1.38", features = ["full"] }
@@ -17,3 +19,7 @@ reqwest = { version = "0.12", default-features = false, features = ["blocking", 
 axum = "0.7"
 tower-http = { version = "0.6", features = ["cors"] }
 rppal = { version = "0.18", optional = true }
+image = { version = "0.25", optional = true, default-features = false, features = ["png", "jpeg"] }
+tract-onnx = { version = "0.21", optional = true }
+ndarray = { version = "0.16", optional = true }
+nokhwa = { version = "0.10", optional = true, features = ["input-native", "output-threaded"] }

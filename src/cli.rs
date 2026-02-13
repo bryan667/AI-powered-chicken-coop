@@ -31,7 +31,14 @@ pub enum FeedCommands {
 
 #[derive(Subcommand)]
 pub enum RunCommands {
-    AiVision,
+    AiVision {
+        #[arg(long)]
+        image: Option<String>,
+        #[arg(long, default_value_t = 0)]
+        camera_index: u32,
+        #[arg(long, default_value_t = 1)]
+        frames: u32,
+    },
 }
 
 #[derive(Subcommand)]
